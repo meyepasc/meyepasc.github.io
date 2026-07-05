@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Würfelspiel – Karten A, B, C, D</title>
+<style>
+    body {
+        font-family:'Segoe UI',Arial,sans-serif; background:#f0f2f5; color:#333;
+        margin:0; padding:20px; display:flex; flex-direction:column; align-items:center;
+    }
+    h1 { color:#2c3e50; text-align:center; }
+    .container {
+        background:#fff; padding:25px 30px; border-radius:12px;
+        box-shadow:0 4px 15px rgba(0,0,0,0.1); max-width:780px; width:100%;
+    }
+
+    /* Legende der Ereignisse */
+    .legend { background:#ecf0f1; border-radius:8px; padding:12px 18px; margin-bottom:20px; }
+    .legend ul { margin:6px 0; padding-left:20px; }
+    .legend li { margin:3px 0; }
+
+    /* Würfel */
+    .dice {
+        width:80px; height:80px; background:#fff; border:3px solid #2c3e50;
+        border-radius:15px; margin:0 auto 6px auto; display:grid;
+        grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+        padding:9px; box-sizing:border-box; box-shadow:0 4px 8px rgba(0,0,0,0.2);
+    }
+    .dice.rolling { animation:shake 0.5s linear infinite; }
+    @keyframes shake {
+        0%{transform:rotate(0) translate(0,0);}
+        25%{transform:rotate(-12deg) translate(-3px,2px);}
+        50%{transform:rotate(10deg) translate(3px,-2px);}
+        75%{transform:rotate(-8deg) translate(-2px,-2px);}
+        100%{transform:rotate(0) translate(0,0);}
+    }
+    .pip { width:14px; height:14px; background:#2c3e50; border-radius:50%; align-self:center; justify-self:center; }
+    .p-tl{grid-area:1/1;} .p-tr{grid-area:1/3;}
+    .p-ml{grid-area:2/1;} .p-mc{grid-area:2/2;} .p-mr{grid-area:2/3;}
+    .p-bl{grid-area:3/1;} .p-br{grid-area:3/3;}
+    .dice-caption { text-align:center; font-size:12px; color:#888; margin-bottom:18px; }
+
+    /* Steuerung */
+    .controls { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; margin-bottom:25px; }
+    label { font-weight:bold; }
+    input[type="number"] { padding:8px; font-size:16px; width:150px; border:1px solid #ccc; border-radius:6px; }
+    button { padding:9px 18px; font-size:16px; background:#3498db; color:#fff; border:none; border-radius:6px; cursor:pointer; transition:background 0.2s; }
+    button:hover { background:#2980b9; }
+    button:disabled { background:#bbb; cursor:not-allowed; }
+    button.reset { background:#95a5a6; }
+    button.reset:hover { background:#7f8c8d; }
+
+    /* Diagramm */
+    .chart-area { display:flex; margin-bottom:5px; }
+    .y-title {
+        writing-mode:vertical-rl; transform:rotate(180deg); text-align:center;
+        font-weight:bold; color:#555; margin-right:4px; font-size:14px;
+    }
+    .y-axis { position:relative; width:70px; height:340px; border-right:2px solid #333; }
+    .y-tick { position:absolute; right:6px; transform:translateY(50%); font-size:12px; color:#333; white-space:nowrap; }
+    .y-tick::after { content:""; position:absolute; right:-8px; top:50%; width:6px; height:1px; background:#333; }
+
+    .chart {
+        flex:1; display:flex; align-items:flex-end; justify-content:space-around;
+        height:340px; border-bottom:2px solid #333; padding:0 15px; position:relative;
+    }
+    /* Sechstel-Gitterlinien */
+    .sixthline { position:absolute; left:0; right:0; border-top:1px dashed #cfd8dc; z-index:0; }
+    .sixthlabel {
+        position:absolute; right:4px; font-size:11px; color:#90a4ae;
+        transform:translateY(-100%); background:rgba(255,255,255,0.6); padding:0 3px;
+    }
+
+    .bar-wrapper { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; width:18%; z-index:1; }
+    .bar-value { font-size:12px; margin-bottom:3px; font-weight:bold; color:#2c3e50; }
+    .bar { width:100%; background:linear-gradient(to top,#8e44ad,#af7ac5); border-radius:4px 4px 0 0; transition:height 0.6s ease; min-height:0; }
+
+    .x-labels { display:flex; justify-content:space-around; padding:0 15px; margin-left:72px; }
+    .x-labels .lbl { width:18%; text-align:center; font-weight:bold; }
+    .x-title { text-align:center; font-weight:bold; margin-top:4px; margin-left:72px; }
+
+    /* Tabelle */
+    table { width:100%; border-collapse:collapse; margin-top:20px; text-align:center; }
+    th, td { border:1px solid #ccc; padding:8px; }
+    th { background:#8e44ad; color:#fff; }
+    td.rowhead { background:#f4ecf7; font-weight:bold; text-align:left; }
+    .frac { font-size:18px; font-weight:bold; color:#8e44ad; }
+    .frac small { display:block; font-size:11px; color:#888; font-weight:normal; }
+    .info { text-align:center; color:#666; margin-top:12px; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🎲 Würfelspiel: Karten A, B, C, D</h1>
+
+    <div class="legend">
+        <strong>Untersuchte Karten (bei einem Wurf der Zahlen 1–6):</strong>
+        <ul>
+            <li><strong>A</strong> – Die gewürfelte Zahl ist eine <em>Primzahl</em></li>
+            <li><strong>B</strong> – Die gewürfelte Zahl ist ein <em>Teiler von 6</em></li>
+            <li><strong>C</strong> – Die gewürfelte Zahl ist <em>gerade</em></li>
+            <li><strong>D</strong> – Die gewürfelte Zahl ist <em>größer als 4</em></li>
+        </ul>
+    </div>
+
+    <div id="dice" class="dice"></div>
+    <div class="dice-caption">(nur zur Veranschaulichung – kein Einzelergebnis)</div>
+
+    <div class="controls">
+        <label for="numRolls">Anzahl der Würfe:</label>
+        <input type="number" id="numRolls" value="10" min="10" max="1000000">
+        <button id="rollBtn" onclick="startSimulation()">Würfeln</button>
+        <button class="reset" onclick="resetAll()">Zurücksetzen</button>
+    </div>
+
+    <div class="chart-area">
+        <div class="y-title">Absolute Häufigkeit</div>
+        <div id="yAxis" class="y-axis"></div>
+        <div id="chart" class="chart"></div>
+    </div>
+    <div id="xLabels" class="x-labels"></div>
+    <div class="x-title">Ereignis</div>
+
+    <table id="resultTable">
+        <thead>
+            <tr>
+                <th>Karte</th>
+                <th>A</th><th>B</th><th>C</th><th>D</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="rowhead">Absolute Häufigkeit</td>
+                <td>0</td><td>0</td><td>0</td><td>0</td>
+            </tr>
+            <tr>
+                <td class="rowhead">Relative Häufigkeit (≈ Sechstel)</td>
+                <td>–</td><td>–</td><td>–</td><td>–</td>
+            </tr>
+        </tbody>
+    </table>
+
+   
+</div>
+
+<script>
+    const CHART_HEIGHT = 340;
+    const NUM_TICKS = 6;   // y-Achse in 6 Abschnitte -> passt zu den Sechsteln
+    const EVENTS = ['A','B','C','D'];
+
+    const pipLayouts = {
+        1:['p-mc'], 2:['p-tl','p-br'], 3:['p-tl','p-mc','p-br'],
+        4:['p-tl','p-tr','p-bl','p-br'],
+        5:['p-tl','p-tr','p-mc','p-bl','p-br'],
+        6:['p-tl','p-tr','p-ml','p-mr','p-bl','p-br']
+    };
+
+    function drawDice(value) {
+        const dice = document.getElementById('dice');
+        dice.innerHTML = '';
+        pipLayouts[value].forEach(pos => {
+            const pip = document.createElement('div');
+            pip.className = 'pip ' + pos;
+            dice.appendChild(pip);
+        });
+    }
+    drawDice(6);
+
+    // Prüfen, welche Ereignisse eine Zahl erfüllt
+    function isPrime(z){ return z===2||z===3||z===5; }        // A
+    function isDivisorOf6(z){ return 6 % z === 0; }            // B (1,2,3,6)
+    function isEven(z){ return z % 2 === 0; }                  // C
+    function isGreater4(z){ return z > 4; }                    // D
+
+    // x-Beschriftung aufbauen
+    (function buildXLabels(){
+        const box = document.getElementById('xLabels');
+        EVENTS.forEach(e=>{
+            const d=document.createElement('div');
+            d.className='lbl'; d.textContent=e;
+            box.appendChild(d);
+        });
+    })();
+
+    function startSimulation() {
+        const input = document.getElementById('numRolls');
+        let n = parseInt(input.value);
+        if (isNaN(n) || n < 10) { alert("Bitte mindestens 10 Würfe eingeben."); input.value=10; return; }
+        if (n > 1000000) { n = 1000000; input.value = 1000000; }
+
+        const dice = document.getElementById('dice');
+        const btn = document.getElementById('rollBtn');
+        btn.disabled = true;
+        dice.classList.add('rolling');
+
+        const shuffle = setInterval(() => { drawDice(Math.floor(Math.random()*6)+1); }, 80);
+
+        setTimeout(() => {
+            clearInterval(shuffle);
+            dice.classList.remove('rolling');
+            drawDice(Math.floor(Math.random()*6)+1);
+            runSimulation(n);
+            btn.disabled = false;
+        }, 700);
+    }
+
+    function runSimulation(n) {
+        // Häufigkeiten der vier Ereignisse (unabhängig, überlappend)
+        const counts = {A:0, B:0, C:0, D:0};
+        for (let i=0;i<n;i++){
+            const z = Math.floor(Math.random()*6)+1;
+            if (isPrime(z))      counts.A++;
+            if (isDivisorOf6(z)) counts.B++;
+            if (isEven(z))       counts.C++;
+            if (isGreater4(z))   counts.D++;
+        }
+
+        buildYAxis(n);
+
+        const chart = document.getElementById('chart');
+        chart.innerHTML = '';
+
+        // Sechstel-Gitterlinien mit Bruch-Beschriftung
+        for (let k=0; k<=6; k++){
+            const line=document.createElement('div');
+            line.className='sixthline';
+            line.style.bottom = (k/6*100) + '%';
+            chart.appendChild(line);
+            const lbl=document.createElement('div');
+            lbl.className='sixthlabel';
+            lbl.style.bottom = (k/6*100) + '%';
+            lbl.textContent = k + '/6';
+            chart.appendChild(lbl);
+        }
+
+        // Balken
+        EVENTS.forEach(e=>{
+            const rel = counts[e]/n;
+            const wrap=document.createElement('div'); wrap.className='bar-wrapper';
+            const val=document.createElement('div'); val.className='bar-value';
+            val.textContent = counts[e].toLocaleString('de-DE');
+            const bar=document.createElement('div'); bar.className='bar';
+            bar.style.height = (rel*100) + '%';
+            wrap.appendChild(val); wrap.appendChild(bar);
+            chart.appendChild(wrap);
+        });
+
+        // Tabelle
+        const rows=document.getElementById('resultTable').tBodies[0].rows;
+        EVENTS.forEach((e,i)=>{
+            const rel = counts[e]/n;
+            const num = Math.round(rel*6);              // auf Sechstel runden
+            rows[0].cells[i+1].textContent = counts[e].toLocaleString('de-DE');
+            rows[1].cells[i+1].innerHTML =
+                '<span class="frac">' + num + '/6' +
+                '<small>' + (rel*100).toFixed(2) + ' %</small></span>';
+        });
+
+
+    }
+
+    function buildYAxis(n) {
+        const yAxis=document.getElementById('yAxis');
+        yAxis.innerHTML='';
+        for (let t=0; t<=NUM_TICKS; t++){
+            const value = Math.round(n * t / NUM_TICKS);
+            const tick=document.createElement('div');
+            tick.className='y-tick';
+            tick.style.bottom = (t/NUM_TICKS*100) + '%';
+            tick.textContent = value.toLocaleString('de-DE');
+            yAxis.appendChild(tick);
+        }
+    }
+
+    function resetAll() {
+        document.getElementById('numRolls').value = 10;
+        drawDice(6);
+        document.getElementById('chart').innerHTML = '';
+        document.getElementById('yAxis').innerHTML = '';
+        const rows=document.getElementById('resultTable').tBodies[0].rows;
+        for(let i=0;i<4;i++){ rows[0].cells[i+1].textContent='0'; rows[1].cells[i+1].textContent='–'; }
+        document.getElementById('info').textContent = "Noch keine Würfe durchgeführt. (Mindestens 10 Würfe.)";
+    }
+</script>
+
+</body>
+</html>
